@@ -37,7 +37,7 @@ JProfiler 可以直接监控 java 程序，也可以分析 dump 文件，但是�
 
 ### 堆溢出排查示例
 测试代码：
-```
+```java
 public class JProfilerOOMTest { 
     static class OOMObject {} 
     public static void main(String[] args) {
@@ -64,6 +64,115 @@ public class JProfilerOOMTest {
 
 ![](src/main/resources/JProfiler-3.png)
 
+# OOM 场景分析
+Java 虚拟机规范中规定除了程序计数器外，虚拟机内存的其他几个运行时区域都有发生 OutOfMemoryError 的可能，下面分析会出现此类错误的 9 个场景。
 
+## StackOverflowError
+Jvm 虚拟机栈存在栈深，如果不停的入栈而不出栈，就会把栈存满。
+
+测试代码：
+```java
+public class StackOverflowErrorTest {   
+    public static void main(String[] args) {
+        javaKeeper();
+    }
+    private static void javaKeeper() {
+        javaKeeper();
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/StackOverflowError.png)
+
+一般来说出现该错误是因为无限递归循环调用。
+但有时候也会因为需要递归的层数过深，从而导致还未到达退出条件就已经出现栈溢出错误，针对这种情况我们可以通过 VM 启动参数 `-Xss` 参数增加线程内存空间。
+
+## Java heap space
+Jvm 堆空间存在上限，如果对象不断增加，并且 GC Roots 到对象之间有可达路径来避免 GC 清除这些对象，那随着对象数量的增加，总容量触及堆的最大容量限制后就会产生内存溢出异常。 
+
+我们通过 VM 启动参数 `-Xms10M -Xmx10M` 限制 Jvm 堆空间大小。
+测试代码：
+
+```java
+// -Xms10M -Xmx10M
+public class HeapSpaceErrorTest {
+    static final int SIZE = 2 * 1024 * 1024;
+    public static void main(String[] args) {
+        int[] i = new int[SIZE];
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/JavaHeapSpace.png)
+
+针对大部分情况，我们只需要通过调整 VM 启动参数即可解决问题。如果问题仍没有解决，那么我们需要根据具体问题具体分析。因为我们在 VM 启动参数里增加 `-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=D:\temp` 是很有必要的，可以在发生 OOM 帮助我们定位异常原因。
+下面是常见的 2 种场景：
+1. 创建了超大对象。如数据库一次性全部数据没有做限制；
+2. 存在内存泄漏。如没有关闭流（HttpClient、IO 流）、ThreadLocal 用完没有 remove。
+
+## GC overhead limit exceeded
+
+Jvm 抛出该错误的场景是花费 98% 以上的时间执行 GC，但只恢复了不到 2% 的内存，且该动作连续重复了 5 次（俗称：垃圾回收上头）。假如不抛出 GC overhead limit exceeded 错误，那 GC 清理得到的一丢丢内存很快就会被再次填满，迫使 GC 再次执行。而 GC overhead limit exceeded 的最终导向就是 Java heap space。
+
+测试代码：
+
+```java
+// -Xms10M -Xmx10M
+public class GCOverheadLimitTest {
+    static class Key {
+        Integer id;
+        Key(Integer id) {
+            this.id = id;
+        }
+    }
+    public static void main(String[] args) {
+        Map m = new HashMap();
+        while (true) {
+            int i = 0;
+            m.put(new Key(++i), i);
+            System.out.println("m.size()=" + m.size());
+        }
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/GCOverheadLimitExceeded.png)
+
+## Direct buffer memory
+使用 NIO 经常需要使用 ByteBuffer 来读取或写入数据，这是一种基于 Channel 和 Buffer 的 I/O 方式，它可以使用 Native 函数库直接分配堆外内存，然后通过一个存储在 Jvm 堆里面的 DirectByteBuffer 对象作为这块内存的引用进行操作。这样在一些场景就避免了 Jvm 堆和 Native 中来回复制数据，所以性能会有所提高。
+
+但是这样一来就牵扯另一个问题：堆外内存。测试该场景我们需要用到 ByteBuffer 类，该类中有以下两个方法：
+1. ByteBuffer.allocate(capability)：分配 JVM 堆内存，属于 GC 管辖范围，需要内存拷贝所以速度相对较慢； 
+2. ByteBuffer.allocateDirect(capability) ：分配 OS 本地内存，不属于 GC 管辖范围，不需要内存拷贝所以速度相对较快。
+
+测试代码：
+```java
+// -Xms10m -Xmx10m -XX:+PrintGCDetails -XX:MaxDirectMemorySize=5m
+public class DirectBufferMemoryTest {
+    public static void main(String[] args) {
+        System.out.println("maxDirectMemory is: "+ sun.misc.VM.maxDirectMemory() / 1024 / 1024 + "MB");
+//        ByteBuffer buffer = ByteBuffer.allocate(8*1024*1024);  // Java heap space
+        ByteBuffer buffer = ByteBuffer.allocateDirect(6*1024*1024);
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/DirectBufferMemory.png)
+
+该问题的排查思路如下：
+1. 由于 Java 只能通过 ByteBuffer.allocateDirect 方法使用 Direct ByteBuffer，因此可以通过 Arthas 等在线诊断工具拦截该方法进行排查； 
+2. 检查是否直接或间接使用了 NIO，如 netty，jetty 等； 
+3. 通过启动参数 -XX:MaxDirectMemorySize 调整 Direct ByteBuffer 的上限； 
+4. 检查 VM 参数是否有 -XX:+DisableExplicitGC 选项，如果有就去掉（该参数会使 System.gc() 失效，System.gc() 可以回收堆外内存）； 
+5. 检查堆外内存使用代码，确认是否存在内存泄漏；或者通过反射调用 sun.misc.Cleaner 的 clean() 方法来主动释放被 Direct ByteBuffer 持有的内存空间 
+6. 内存容量确实不足，升级配置。
 
 
