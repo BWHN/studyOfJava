@@ -3,7 +3,7 @@
 ## jstack
 jstack 是 jdk 自带的一款工具，用于生成 jvm 当前时刻的线程快照。其指令为：`jstack [option] pid`，执行后展示信息如下所示：
 
-![](src/main/resources/jstack.png)
+![](src/main/resources/troubleshooting/jstack.png)
 
 也可以通过该的指令将栈信息保存：`jstack pid > stack[pid].log`。
 
@@ -13,7 +13,7 @@ jmap 也是 jdk 自带的一款工具，用于监控 jvm 中的 java 对象。�
 ### heap
 该参数作用是打印堆摘要信息，指令为：`jmap -heap pid`。执行后展示信息如下所示：
 
-![](src/main/resources/jmap-heap.png)
+![](src/main/resources/troubleshooting/jmap-heap.png)
 
 ### dump
 该参数作用是生成当前 jvm 进程的堆快照（将 jvm 堆信息以 hprof 二进制格式转储到 filename 文件中），指令为：
@@ -21,11 +21,11 @@ jmap 也是 jdk 自带的一款工具，用于监控 jvm 中的 java 对象。�
 
 指令执行结果如下所示：
 
-![](src/main/resources/jmap-dump-1.png)
+![](src/main/resources/troubleshooting/jmap-dump-1.png)
 
 然后我们就可以将生成好 dump 文件下载到本地，然后使用分析工具来分析该文件。最简单的，我们可以使用 jvm 自带 jvisualvm 来打开 dump 文件。
 
-![](src/main/resources/jmap-dump-2.png)
+![](src/main/resources/troubleshooting/jmap-dump-2.png)
 
 除了这种主动抓取的方式，还有一种被动获取的方式，可以在 java 程序发生 OOM 时为我们生成 dump 文件。在启动 java 程序的指令中增加参数：`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=D:\temp`，需要注意的是，通过该方式生成的 dump 文件是 hprof 类型。
 
@@ -54,18 +54,20 @@ public class JProfilerOOMTest {
 
 运行程序即可看到堆溢出错误：
 
-![](src/main/resources/JProfiler-1.png)
+![](src/main/resources/troubleshooting/JProfiler-1.png)
 
 使用 JProfiler 打开 dump 文件：
 
-![](src/main/resources/JProfiler-2.png)
+![](src/main/resources/troubleshooting/JProfiler-2.png)
 
 可以看到 OOMObject 对象存在大量实例，查看该对象的持有者（incoming references）, 点击 show more，即可看到出错代码位置：
 
-![](src/main/resources/JProfiler-3.png)
+![](src/main/resources/troubleshooting/JProfiler-3.png)
 
 # OOM 场景分析
 Java 虚拟机规范中规定除了程序计数器外，虚拟机内存的其他几个运行时区域都有发生 OutOfMemoryError 的可能，下面分析会出现此类错误的 9 个场景。
+
+![](src/main/resources/oom/OOMSummary.png)
 
 ## StackOverflowError
 Jvm 虚拟机栈存在栈深，如果不停的入栈而不出栈，就会把栈存满。
@@ -84,7 +86,7 @@ public class StackOverflowErrorTest {
 
 打印结果：
 
-![](src/main/resources/StackOverflowError.png)
+![](src/main/resources/oom/StackOverflowError.png)
 
 一般来说出现该错误是因为无限递归循环调用。
 但有时候也会因为需要递归的层数过深，从而导致还未到达退出条件就已经出现栈溢出错误，针对这种情况我们可以通过 VM 启动参数 `-Xss` 参数增加线程内存空间。
@@ -107,7 +109,7 @@ public class HeapSpaceErrorTest {
 
 打印结果：
 
-![](src/main/resources/JavaHeapSpace.png)
+![](src/main/resources/oom/JavaHeapSpace.png)
 
 针对大部分情况，我们只需要通过调整 VM 启动参数即可解决问题。如果问题仍没有解决，那么我们需要根据具体问题具体分析。因为我们在 VM 启动参数里增加 `-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=D:\temp` 是很有必要的，可以在发生 OOM 帮助我们定位异常原因。
 下面是常见的 2 种场景：
@@ -142,7 +144,7 @@ public class GCOverheadLimitTest {
 
 打印结果：
 
-![](src/main/resources/GCOverheadLimitExceeded.png)
+![](src/main/resources/oom/GCOverheadLimitExceeded.png)
 
 ## Direct buffer memory
 使用 NIO 经常需要使用 ByteBuffer 来读取或写入数据，这是一种基于 Channel 和 Buffer 的 I/O 方式，它可以使用 Native 函数库直接分配堆外内存，然后通过一个存储在 Jvm 堆里面的 DirectByteBuffer 对象作为这块内存的引用进行操作。这样在一些场景就避免了 Jvm 堆和 Native 中来回复制数据，所以性能会有所提高。
@@ -150,6 +152,8 @@ public class GCOverheadLimitTest {
 但是这样一来就牵扯另一个问题：堆外内存。测试该场景我们需要用到 ByteBuffer 类，该类中有以下两个方法：
 1. ByteBuffer.allocate(capability)：分配 JVM 堆内存，属于 GC 管辖范围，需要内存拷贝所以速度相对较慢； 
 2. ByteBuffer.allocateDirect(capability) ：分配 OS 本地内存，不属于 GC 管辖范围，不需要内存拷贝所以速度相对较快。
+
+最大直接内存（MaxDirectMemorySize）默认是电脑内存的 1/4，我们设置为 5M 模拟异常。
 
 测试代码：
 ```java
@@ -165,7 +169,7 @@ public class DirectBufferMemoryTest {
 
 打印结果：
 
-![](src/main/resources/DirectBufferMemory.png)
+![](src/main/resources/oom/DirectBufferMemory.png)
 
 该问题的排查思路如下：
 1. 由于 Java 只能通过 ByteBuffer.allocateDirect 方法使用 Direct ByteBuffer，因此可以通过 Arthas 等在线诊断工具拦截该方法进行排查； 
@@ -175,4 +179,83 @@ public class DirectBufferMemoryTest {
 5. 检查堆外内存使用代码，确认是否存在内存泄漏；或者通过反射调用 sun.misc.Cleaner 的 clean() 方法来主动释放被 Direct ByteBuffer 持有的内存空间 
 6. 内存容量确实不足，升级配置。
 
+## Unable to create new native thread
+
+每个 Java 线程都需要占用一定的内存空间，当 JVM 向 OS 请求创建一个新的 native 线程时，如果没有足够的资源分配就会报此类错误。
+
+测试代码：
+
+```java
+public class UnableCreateThreadTest {
+    public static void main(String[] args) {
+        while(true){
+            new Thread(() -> {
+                try {
+                    Thread.sleep(Integer.MAX_VALUE);
+                } catch(InterruptedException e) { }
+            }).start();
+        }
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/oom/UnableToCreateNewNativeThread.png)
+
+## Metaspace
+JDK 1.8 之前会出现 Permgen space，该错误表示永久代（Permanent Generation）已满，通常是因为加载的 class 数目太多或体积太大。随着 1.8 中永久代的取消，就不会出现这种异常了。
+Metaspace 是方法区在 HotSpot 中的实现，它与永久代最大的区别在于，元空间并不在虚拟机内存中而是使用本地内存，但是本地内存也有打满的时候，所以也会有异常。
+
+测试代码：
+```java
+//-XX:MetaspaceSize=10m -XX:MaxMetaspaceSize=10m
+public class MetaSpaceTest {
+    public static void main(String[] args) {
+        while (true) {
+            Enhancer enhancer = new Enhancer();
+            enhancer.setSuperclass(MetaSpaceTest.class);
+            enhancer.setUseCache(false);
+            enhancer.setCallback((MethodInterceptor) (o, method, objects, methodProxy) -> {
+                //动态代理创建对象
+                return methodProxy.invokeSuper(o, objects);
+            });
+            enhancer.create();
+        }
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/oom/Metaspace.png)
+
+方法区溢出也是一种常见的内存溢出异常，在经常运行时生成大量动态类的应用场景中，就应该特别关注这些类的回收情况。这类场景除了上边的 GCLib 字节码增强和动态语言外，常见的还有，大量 JSP 或动态产生 JSP   文件的应用（远古时代的传统软件行业可能会有）、基于 OSGi 的应用（即使同一个类文件，被不同的加载器加载也会视为不同的类）等。
+
+## Requested array size exceeds VM limit
+
+JVM 限制了数组的最大长度，通常为 Integer.MAX_VALUE-2。如果创建的数组超过该限制，就会报错程序请求创建的数组超过最大长度限制。
+
+测试代码：
+
+```java
+public class RequestedArraySizeTest {
+    public static void main(String[] args) {
+        int[] arr = new int[Integer.MAX_VALUE-2];
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/oom/UnableToCreateNewNativeThread.png)
+
+## Out of swap space
+OS 内存由两部分组成：物理内存（Physical Memory），交换空间（Swap Space），它们统称为虚拟内存（Virtual Memory）。在 JVM 请求的总内存大于可用物理内存的情况下，操作系统会将内容从内存换出到硬盘驱动器。
+出现该错误则表示，所有可用的虚拟内存已被耗尽。
+
+## Kill process or sacrifice child
+操作系统是建立在流程概念之上的。这些进程由几个内核作业负责，其中一个名为“ Out of memory Killer”，它会在可用内存极低的情况下“杀死”（kill）某些进程。OOM Killer 会对所有进程进行打分，然后将评分较低的进程“杀死”，具体的评分规则可以参考 Surviving the Linux OOM Killer。
+
+不同于其他的 OOM 错误，Kill processor sacrifice child 错误不是由 JVM 层面触发的，而是由操作系统层面触发的。
 
