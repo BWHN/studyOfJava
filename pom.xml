@@ -17,6 +17,7 @@
 
     <modules>
         <module>java-optimization</module>
+        <module>java-base</module>
     </modules>
 
     <properties>
