@@ -63,10 +63,10 @@ public class JDKProxyTest {
 ### 原理
 Proxy 的 `newProxyInstance()` 方法大体上将动态代理分为以下 4 个步骤：
 
-1. checkProxyAccess：进行参数验证； 
-2. getProxyClass0：生成一个代理类 class 文件或者寻找已生成过的代理类的缓存； 
-3. getConstructor：获取生成的代理类的构造方法； 
-4. newInstance：生成实例对象，也就是最终的代理对象。
+1. `checkProxyAccess`：进行参数验证； 
+2. `getProxyClass0`：生成一个代理类 class 文件或者寻找已生成过的代理类的缓存； 
+3. `getConstructor`：获取生成的代理类的构造方法； 
+4. `newInstance`：生成实例对象，也就是最终的代理对象。
 
 在这 4 个步骤中，第 2 步是关键。其核心是调用了 `ProxyClassFactory` 的 `apply()` 方法生成 class 文件。
 在该方法中，首先会生成代理类的文件名（默认文件名是 com.sun.proxy.$Proxy0.class）：
@@ -88,16 +88,16 @@ Proxy 的 `newProxyInstance()` 方法大体上将动态代理分为以下 4 个�
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-4.png)
 
-将代理类反编译，我们可以看到代理类继承了 Proxy 类并实现了 Worker 接口。
+将代理类反编译，我们可以看到代理类继承了 `Proxy` 类并实现了 `Worker` 接口。
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-5.png)
 
-截图上省略了关于 equals、toString、hashCode 方法的实现，实现上和 work 方法一样，都是调用 `super.h.invoke()` 方法。
+截图上省略了关于 `equals`、`toString`、`hashCode` 方法的实现，实现上和 `work` 方法一样，都是调用 `super.h.invoke()` 方法。
 
 代理类主要做了下面 3 件事情：
-1. 在这个类的静态代码块中，通过反射初始化了多个静态方法 Method 变量，除了接口中的方法还有 equals、toString、hashCode 这三个方法； 
-2. 继承父类 Proxy，实例化的过程中会调用父类的构造方法，构造方法中传入的 invocationHandler 对象实际上就是我们自定义的 WorkHandler 的实例； 
-3. 实现了自定义的接口 Worker，并重写了 work 方法，方法内调用了 InvocationHandler 的 invoke 方法，也就是实际上调用了 WorkHandler 的 invoke 方法。
+1. 在这个类的静态代码块中，通过反射初始化了多个静态方法 `Method` 变量，除了接口中的方法还有 `equals`、`toString`、`hashCode` 这三个方法； 
+2. 继承父类 `Proxy`，实例化的过程中会调用父类的构造方法，构造方法中传入的 `InvocationHandler` 对象实际上就是我们自定义的 `WorkHandler` 的实例； 
+3. 实现了自定义的接口 `Worker`，并重写了 `work` 方法，方法内调用了 `InvocationHandler` 的 `invoke` 方法，也就是实际上调用了 `WorkHandler` 的 `invoke` 方法。
 
 至此，我们可以归纳出 JDK 动态代理的执行流程：
 
@@ -105,17 +105,17 @@ Proxy 的 `newProxyInstance()` 方法大体上将动态代理分为以下 4 个�
 
 ### 为什么必须是接口？
 
-我们知道在 java 中想要扩展一个类有两种方式：继承父类和实现接口。查看反编译后的代理类信息可知，代理类需要继承 Proxy 类，而 java 是单继承的。那么代理类就只能通过实现接口来扩展目标类。
+我们知道在 java 中想要扩展一个类有两种方式：继承父类和实现接口。查看反编译后的代理类信息可知，代理类需要继承 `Proxy` 类，而 java 是单继承的。那么代理类就只能通过实现接口来扩展目标类。
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-7.png)
 
 在明白这一点之后，我们可以继续往下思考：代理是什么？代理是对目标的逻辑增强，而这段增强的逻辑肯定是用户自定义的。如此一来，代理类的职责就很清晰了：组合目标类和目标类的逻辑增强。
 
-在 JDK 动态代理实现中，逻辑增强就是 InvocationHandler 接口。但 InvocationHandler 的实现类也不仅仅是逻辑增强，它的实现类已经把目标类和对目标类的逻辑增强做到了一起！
+在 JDK 动态代理实现中，逻辑增强就是 `InvocationHandler` 接口。但 `InvocationHandler` 的实现类也不仅仅是逻辑增强，它的实现类已经把目标类和对目标类的逻辑增强做到了一起！
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-8.png)
 
-那么问题来了：既然 InvocationHandler 已经将目标类和逻辑增强耦合到了一起，代理类又干了什么呢？其实 JDK 动态代理生成的代理类并没有像我们预期的那样绑定目标类和逻辑增强，而是进行了方法转发。
+那么问题来了：既然 `InvocationHandler` 已经将目标类和逻辑增强耦合到了一起，代理类又干了什么呢？其实 JDK 动态代理生成的代理类并没有像我们预期的那样绑定目标类和逻辑增强，而是进行了方法转发。
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-9.png)
 
@@ -130,7 +130,7 @@ Cglib（Code Generation Library）是一个高性能的代码生成包，它广�
 
 对于此图：
 
-* 最底层的是字节码 Bytecode，字节码是 Java 为了保证“一次编译、到处运行”而产生的一种虚拟指令格式。例如 iload_0、iconst_1、if_icmpne、dup 等； 
+* 最底层的是字节码 Bytecode，字节码是 Java 为了保证“一次编译、到处运行”而产生的一种虚拟指令格式。例如 `iload_0`、`iconst_1`、`if_icmpne`、`dup` 等； 
 * 位于字节码之上的是 ASM，这是一种直接操作字节码的框架，应用 ASM 需要对 Java 字节码、Class 结构比较熟悉； 
 * 位于 ASM 之上的是 CGLIB、Groovy、BeanShell，后两种并不是 Java 体系中的内容而是脚本语言。它们通过 ASM 框架生成字节码变相执行 Java 代码，这说明在 JVM 中执行程序并不一定非要写 Java 代码 —— 只要你能生成Java字节码，JVM 并不关心字节码的来源。当然通过Java代码生成的JVM字节码是通过编译器直接生成的，算是最“正统”的 JVM 字节码； 
 * 位于 CGLIB、Groovy、BeanShell 之上的就是 Hibernate、Spring AOP 这些框架了； 
@@ -186,40 +186,40 @@ public class CGLibProxyTest {
 
 ![](src/main/resources/dynamic_proxy/CGLib-3.png)
 
-CgLib 动态代理采用了 FastClass 机制，分别为代理类和目标类各生成一个 FastClass，这个 FastClass 类会为代理类或目标类的方法分配一个 index（int类型）。这个 index 当做一个入参，FastClass  就可以直接定位要调用的方法直接进行调用，这样省去了反射调用，所以调用效率比 JDK 动态代理通过反射调用更高。
+CgLib 动态代理采用了 `FastClass` 机制，分别为代理类和目标类各生成一个 `FastClass`，这个 `FastClass` 类会为代理类或目标类的方法分配一个 index（int类型）。这个 index 当做一个入参，`FastClass` 就可以直接定位要调用的方法直接进行调用，这样省去了反射调用，所以调用效率比 JDK 动态代理通过反射调用更高。
 
-反编译代理类，我们看最关键的 select() 方法是如何代理的：
+反编译代理类，我们看最关键的 `select()` 方法是如何代理的：
 
 ![](src/main/resources/dynamic_proxy/CGLib-4.png)
 
-CgLib 生成的代理类为 select() 方法生了一个 MehtodProxy。select() 方法被执行时，会将 MehthodProxy 作为参数传递给用户实现的 MethodInterceptor，然后实现方法增强。
+CgLib 生成的代理类为 `select()` 方法生了一个 `MethodProxy`。`select()` 方法被执行时，会将 `MethodProxy` 作为参数传递给用户实现的 `MethodInterceptor`，然后实现方法增强。
 
-那么 MethodProxy 是如何实现方法代理的呢？在我们的测试代码中是这样使用 MethodProxy 的：
+那么 `MethodProxy` 是如何实现方法代理的呢？在我们的测试代码中是这样使用 `MethodProxy` 的：
 
 `Object result = methodProxy.invokeSuper(o, objects);`
 
-查看 invokeSuper() 方法：
+查看 `invokeSuper()` 方法：
 
 ![](src/main/resources/dynamic_proxy/CGLib-5.png)
 
-可以看到 invokeSuper() 方法内部就是调用 FastClass 的 invoke() 方法。而也就是说 FastClass 才是 CgLib 动态代理的核心。而 FastClass 是抽象类，invoke() 方法是抽象方法。那么 FastClass 的实现在哪儿呢？CgLib 生成的代理类文件共有 3 个，其中 1 个就是代理类的 FastClass 文件。反编译 CgLib 生成的代理类的 FastClass 文件：
+可以看到 `invokeSuper()` 方法内部就是调用 `FastClass` 的 `invoke()` 方法。而也就是说 `FastClass` 才是 CgLib 动态代理的核心。而 `FastClass` 是抽象类，`invoke()` 方法是抽象方法。那么 `FastClass` 的实现在哪儿呢？CgLib 生成的代理类文件共有 3 个，其中 1 个就是代理类的 `FastClass` 文件。反编译 CgLib 生成的代理类的 `FastClass` 文件：
 
 ![](src/main/resources/dynamic_proxy/CGLib-6.png)
 
-可以看到 invoke() 方法内部就是靠入参的 int 值确定执行代理类的 select() 方法。那么这 int 值又是怎么来的呢？可以预见这就是 FastClass 的核心机制。
-把注意力再次回到 CgLib 创建的代理类中为 select() 方法创建 MothodProxy 的时候：
+可以看到 `invoke()` 方法内部就是靠入参的 int 值确定执行代理类的 `select()` 方法。那么这 int 值又是怎么来的呢？可以预见这就是 `FastClass` 的核心机制。
+把注意力再次回到 CgLib 创建的代理类中为 `select()` 方法创建 `MethodProxy` 的时候：
 
 `CGLIB$select$0$Proxy = MethodProxy.create(var1, var0, "()V", "select", "CGLIB$select$0");`
 
-进入 create() 方法，可以看到该方法生成了 2 个方法签名：
+进入 `create()` 方法，可以看到该方法生成了 2 个方法签名：
 
 ![](src/main/resources/dynamic_proxy/CGLib-7.png)
 
-接下来在 init() 方法中，代理类的 FastClass 根据方法签名找到对应的 int 值并储存起来：
+接下来在 `init()` 方法中，代理类的 `FastClass` 根据方法签名找到对应的 int 值并储存起来：
 
 ![](src/main/resources/dynamic_proxy/CGLib-8.png)
 
-而 CGLIB$select$0() 最终执行的又是什么呢？答案就是父类的 select() 方法。
+而 `CGLIB$select$0()` 最终执行的又是什么呢？答案就是父类的 `select()` 方法。
 
 ```java
 final void CGLIB$select$0() {
@@ -235,7 +235,7 @@ JDK 动态代理是实现了被代理对象所实现的接口；
 CgLib 是继承了被代理对象，但是不能对声明为 final 的方法进行代理。
 JDK 和 CgLib 都是在运行期生成字节码，JDK 是直接写 class 字节码，CGLib 使用 ASM 框架写 class 字节码，CgLib 代理实现更复杂，生成代理类的效率比 JDK 代理低。
 
-JDK 调用代理方法，是通过反射机制调用；CGLib 是通过 FastClass 机制直接调用方法，CGLib 执行效率更高。
+JDK 调用代理方法，是通过反射机制调用；CGLib 是通过 `FastClass` 机制直接调用方法，CGLib 执行效率更高。
 
 JDK、CgLib 执行性能对比：
 
