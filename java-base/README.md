@@ -44,6 +44,7 @@ class WorkHandler implements InvocationHandler {
       }
 }
 // 测试类
+// -Dsun.misc.ProxyGenerator.saveGeneratedFiles=true
 public class JDKProxyTest {
       public static void main(String[] args) {
             Programmer programmer = new Programmer();
@@ -84,15 +85,13 @@ Proxy 的 `newProxyInstance()` 方法大体上将动态代理分为以下 4 个�
 第二种是在代码中加入下面这一句，注意要加在生成动态代理对象之前：
 `System.getProperties().put("sun.misc.ProxyGenerator.saveGeneratedFiles", "true");`。
 
-另外需要注意这个文件生成的位置，并不是在 target 目录下，而是在项目目录下的 com\sun\proxy 中。而如果我们定义接口为私有，那么生成的代理类将会在接口所在路径（同样是在项目外）：
+另外需要注意这个文件生成的位置，并不是在 target 目录下，而是在项目目录下的 `org\study\java\java_base\dynamic_proxy` 中。这是因为测试代码中我们定义的 `Worker` 接口是非 `public` 的，如果我们将 `Worker` 接口定义为 `public`，那么代理类的 class 文件将会出现在 `com\sun\proxy` 目录下。
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-4.png)
 
 将代理类反编译，我们可以看到代理类继承了 `Proxy` 类并实现了 `Worker` 接口。
 
 ![](src/main/resources/dynamic_proxy/JDKProxy-5.png)
-
-截图上省略了关于 `equals`、`toString`、`hashCode` 方法的实现，实现上和 `work` 方法一样，都是调用 `super.h.invoke()` 方法。
 
 代理类主要做了下面 3 件事情：
 1. 在这个类的静态代码块中，通过反射初始化了多个静态方法 `Method` 变量，除了接口中的方法还有 `equals`、`toString`、`hashCode` 这三个方法； 
@@ -161,6 +160,7 @@ class DaoMethodInterceptor implements MethodInterceptor {
 // 测试类
 public class CGLibProxyTest {
     public static void main(String[] args) {
+//        System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "D:/code/studyOfJava");
         DaoMethodInterceptor methodInterceptor = new DaoMethodInterceptor();
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(Dao.class);
@@ -180,7 +180,7 @@ public class CGLibProxyTest {
 
 同样的，想要探究 Cglib 动态代理的原理，需要将其生成的字节码文件保留到本地。在实现代码入口处增加如下代码：
 
-`System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "/temp");`
+`System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "D:/code/studyOfJava");`
 
 重新执行代码后，我们就可以在对应目录下可以看到 3 个文件：
 

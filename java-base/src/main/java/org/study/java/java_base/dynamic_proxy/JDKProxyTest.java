@@ -30,6 +30,7 @@ class WorkHandler implements InvocationHandler {
       }
 }
 // 测试类
+// -Dsun.misc.ProxyGenerator.saveGeneratedFiles=true
 public class JDKProxyTest {
       public static void main(String[] args) {
             Programmer programmer = new Programmer();

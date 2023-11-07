@@ -1,5 +1,6 @@
 package org.study.java.java_base.dynamic_proxy;
 
+import org.springframework.cglib.core.DebuggingClassWriter;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.cglib.proxy.MethodProxy;
@@ -26,6 +27,7 @@ class DaoMethodInterceptor implements MethodInterceptor {
 // 测试类
 public class CGLibProxyTest {
     public static void main(String[] args) {
+//        System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "D:/code/studyOfJava");
         DaoMethodInterceptor methodInterceptor = new DaoMethodInterceptor();
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(Dao.class);
