@@ -240,3 +240,152 @@ JDK 调用代理方法，是通过反射机制调用；CGLib 是通过 `FastClas
 JDK、CgLib 执行性能对比：
 
 ![](src/main/resources/dynamic_proxy/CGLib-9.png)
+
+# 深/浅拷贝
+java 中拷贝共有 3 种：引用拷贝、浅拷贝和深拷贝。
+
+引用拷贝就是简单的赋值操作，不同的引用依然指向堆区的同一对象，这里不再赘述。如：
+
+```java
+Person person = new Person();
+Person clone = person;
+```
+
+## 浅拷贝
+不同于引用拷贝的是，浅拷贝会创建一个全新的对象，新对象和原对象本身没有任何关系，但是新对象的属性和原对象相同。具体区别如下：
+
+* 如果属性是基本类型（`int`，`double`，`long`，`boolean` 等），拷贝的就是基本类型的值； 
+* 如果属性是引用类型，拷贝的就是内存地址，即复制引用但不复制引用的对象。因此如果其中一个对象改变了引用的对象，就会影响到另一个对象。
+* 
+实现浅拷贝需要在拷贝的类上实现 `Cloneable` 接口并重写其 `clone()` 方法。
+
+测试代码：
+```java
+@Getter
+class Father implements Cloneable {
+    private String name;
+    private int age;
+    public Father(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();
+    }
+}
+
+public class ShallowCopyTest {
+    public static void main(String[] args) throws CloneNotSupportedException {
+        Father father = new Father("fa", 40);
+        Father clone = (Father) father.clone();
+        System.out.println("father equals: " + (father == clone));
+        System.out.println("name equals: " + (father.getName() == clone.getName()));
+        System.out.println("age equals: " + (father.getAge() == clone.getAge()));
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/copy/copy-1.png)
+
+可以看到，通过浅拷贝创建的对象，其内部持有的其他对象依然是相同的。
+
+## 深拷贝
+相较于浅拷贝，深拷贝更进一步：在对引用数据类型进行拷贝的时候，也会创建一个新的对象，并且拷贝其内部的成员变量。
+
+在深拷贝的具体实现上，有两种方式：
+1. 重写 `clone()` 方法； 
+2. 序列化：有两种实现：实现 `Serializable` 接口、`JSON` 序列化。
+
+### 重写 clone() 方法
+在浅拷贝测试代码的基础上，我们在 clone() 方法内将引用数据类型赋值为新的对象，修改为如下代码：
+
+```java
+@Override
+protected Object clone() throws CloneNotSupportedException {
+  Father father = (Father) super.clone();
+  father.name = new String(name);
+  return father;
+}
+```
+
+打印结果：
+
+![](src/main/resources/copy/copy-2.png)
+
+不难发现，通过重写 `clone()` 方法实现深拷贝的方式存在一个隐患：若引用数量/引用层级过多，会导致需要重写的 `clone()` 方法呈几何级数增长。因此我们一般通过序列化来实现深拷贝。
+
+### Serializable 序列化
+实现 `Serializable` 接口就可以让对象序列化。通过序列化，对象可以脱离 java 程序存在于别的媒介之中，例如文本、数据库。我们通过反序列化将对象载入 java 程序中，就可以得到一个全新的对象。
+
+测试代码：
+
+```java
+@Getter
+class Son implements Serializable {
+    private String name;
+    private int age;
+    public Son(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+    public Object deepClone() throws IOException, ClassNotFoundException {
+        ByteArrayOutputStream bOS = new ByteArrayOutputStream();
+        ObjectOutputStream oOS = new ObjectOutputStream(bOS);
+        oOS.writeObject(this);
+
+        ByteArrayInputStream bIS = new ByteArrayInputStream(bOS.toByteArray());
+        ObjectInputStream oIS = new ObjectInputStream(bIS);
+        return oIS.readObject();
+    }
+}
+
+public class SerializableTest {
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+        Son son = new Son("son", 20);
+        Son clone = (Son) son.deepClone();
+        System.out.println("son equals: " + (son == clone));
+        System.out.println("name equals: " + (son.getName() == clone.getName()));
+        System.out.println("age equals: " + (son.getAge() == clone.getAge()));
+    }
+}
+```
+
+打印结果：
+
+![](src/main/resources/copy/copy-3.png)
+
+需要注意，通过实现 `Serializable` 接口实现深拷贝，其引用数据类型的成员变量也需要实现 `Serializable` 接口。否则会报错。
+
+不过像 `deepClone()` 里的代码重复性很强，我们可以借助 Apache Commons Lang 提供的 `SerializationUtils` 实现：
+
+```java
+Son son = new Son("son", 20);
+Son clone = (Son) SerializationUtils.clone(son);
+```
+
+### JSON 序列化
+JSON 序列化有多种实现，这里介绍 3 种。
+
+Google Gson：
+```java
+Son son = new Son("son", 20);
+Gson gson = new Gson();
+Son clone = gson.fromJson(gson.toJson(son), Son.class);
+```
+
+Fasterxml Jackson（序列化类需要有无参构造）：
+```java
+Son son = new Son("son", 20);
+ObjectMapper objectMapper = new ObjectMapper();
+Son clone = objectMapper.readValue(objectMapper.writeValueAsString(son), Son.class);
+```
+
+Alibaba Fastjson（序列化类需要有无参构造、Setter 方法）：
+```java
+Son son = new Son("son", 20);
+Son clone = JSONObject.parseObject(JSONObject.toJSONString(son)).toJavaObject(Son.class);
+```
+

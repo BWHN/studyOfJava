@@ -3,7 +3,7 @@
 ## jstack
 jstack 是 jdk 自带的一款工具，用于生成 jvm 当前时刻的线程快照。其指令为：`jstack [option] pid`，执行后展示信息如下所示：
 
-![](src/main/resources/troubleshooting/jstack.png)
+![](src/main/resources/trouble_shooting/jstack.png)
 
 也可以通过该的指令将栈信息保存：`jstack pid > stack[pid].log`。
 
@@ -13,7 +13,7 @@ jmap 也是 jdk 自带的一款工具，用于监控 jvm 中的 java 对象。�
 ### heap
 该参数作用是打印堆摘要信息，指令为：`jmap -heap pid`。执行后展示信息如下所示：
 
-![](src/main/resources/troubleshooting/jmap-heap.png)
+![](src/main/resources/trouble_shooting/jmap-heap.png)
 
 ### dump
 该参数作用是生成当前 jvm 进程的堆快照（将 jvm 堆信息以 hprof 二进制格式转储到 filename 文件中），指令为：
@@ -21,11 +21,11 @@ jmap 也是 jdk 自带的一款工具，用于监控 jvm 中的 java 对象。�
 
 指令执行结果如下所示：
 
-![](src/main/resources/troubleshooting/jmap-dump-1.png)
+![](src/main/resources/trouble_shooting/jmap-dump-1.png)
 
 然后我们就可以将生成好 dump 文件下载到本地，然后使用分析工具来分析该文件。最简单的，我们可以使用 jvm 自带 jvisualvm 来打开 dump 文件。
 
-![](src/main/resources/troubleshooting/jmap-dump-2.png)
+![](src/main/resources/trouble_shooting/jmap-dump-2.png)
 
 除了这种主动抓取的方式，还有一种被动获取的方式，可以在 java 程序发生 OOM 时为我们生成 dump 文件。在启动 java 程序的指令中增加参数：`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=D:\temp`，需要注意的是，通过该方式生成的 dump 文件是 hprof 类型。
 
@@ -55,15 +55,15 @@ public class JProfilerOOMTest {
 
 运行程序即可看到堆溢出错误：
 
-![](src/main/resources/troubleshooting/JProfiler-1.png)
+![](src/main/resources/trouble_shooting/JProfiler-1.png)
 
 使用 JProfiler 打开 dump 文件：
 
-![](src/main/resources/troubleshooting/JProfiler-2.png)
+![](src/main/resources/trouble_shooting/JProfiler-2.png)
 
 可以看到 OOMObject 对象存在大量实例，查看该对象的持有者（incoming references）, 点击 show more，即可看到出错代码位置：
 
-![](src/main/resources/troubleshooting/JProfiler-3.png)
+![](src/main/resources/trouble_shooting/JProfiler-3.png)
 
 # OOM 场景分析
 Java 虚拟机规范中规定除了程序计数器外，虚拟机内存的其他几个运行时区域都有发生 `OutOfMemoryError` 的可能，下面分析会出现此类错误的 9 个场景。

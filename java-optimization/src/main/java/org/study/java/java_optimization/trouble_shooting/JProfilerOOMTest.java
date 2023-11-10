@@ -1,4 +1,4 @@
-package org.study.java.java_optimization.jprofiler;
+package org.study.java.java_optimization.trouble_shooting;
 
 import java.util.ArrayList;
 import java.util.List;
