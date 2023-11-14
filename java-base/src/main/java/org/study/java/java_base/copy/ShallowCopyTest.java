@@ -14,6 +14,7 @@ class Father implements Cloneable {
   protected Object clone() throws CloneNotSupportedException {
     return super.clone();
   }
+//  // deep clone
 //  @Override
 //  protected Object clone() throws CloneNotSupportedException {
 //    Father father = (Father) super.clone();
