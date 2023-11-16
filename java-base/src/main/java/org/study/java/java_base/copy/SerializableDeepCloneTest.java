@@ -34,7 +34,7 @@ public class SerializableDeepCloneTest {
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         Son son = new Son("son", 20);
         Son clone = (Son) son.deepClone();
-        clone = ApacheCommonTest(son);
+//        clone = ApacheCommonTest(son);
         System.out.println("son equals: " + (son == clone));
         System.out.println("name equals: " + (son.getName() == clone.getName()));
         System.out.println("age equals: " + (son.getAge() == clone.getAge()));
