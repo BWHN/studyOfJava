@@ -2,7 +2,6 @@ package org.study.java.spring_base.dependency_cycle;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
@@ -20,7 +19,7 @@ class Dependency1 {
     public void setD2(Dependency2 d2) {
         this.d2 = d2;
     }
-//    @Transactional
+//    @Transactional    // 放开该注解可测试 wrapIfNecessary 创建代理类分支
 //    public void testProxy() {}
 }
 public class DependencyInjectTest {}

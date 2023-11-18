@@ -5,7 +5,7 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-//@Component
+//@Component  // 同时放开该注解和下面2个注解，会出现循环依赖
 @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 class DependencyCycleOfPrototype2 {
   @Autowired

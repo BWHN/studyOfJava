@@ -27,6 +27,7 @@ class DaoMethodInterceptor implements MethodInterceptor {
 // 测试类
 public class CGLibProxyTest {
     public static void main(String[] args) {
+//        // 保存代理类到指定路径
 //        System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "D:/code/studyOfJava");
         DaoMethodInterceptor methodInterceptor = new DaoMethodInterceptor();
         Enhancer enhancer = new Enhancer();

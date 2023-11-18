@@ -1,9 +1,8 @@
 package org.study.java.spring_base.dependency_cycle;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-//@Component
+//@Component // 同时放开该注解和下面的注解，会出现循环依赖
 class DependencyCycleOfConstructor2 {
     private DependencyCycleOfConstructor1 dependency1;
     public DependencyCycleOfConstructor2(DependencyCycleOfConstructor1 dependency1) {

@@ -3,7 +3,7 @@ package org.study.java.java_optimization.oom;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 
-//-XX:MetaspaceSize=10m -XX:MaxMetaspaceSize=10m
+// VM 参数：-XX:MetaspaceSize=10m -XX:MaxMetaspaceSize=10m
 public class MetaSpaceTest {
     public static void main(String[] args) {
         while (true) {

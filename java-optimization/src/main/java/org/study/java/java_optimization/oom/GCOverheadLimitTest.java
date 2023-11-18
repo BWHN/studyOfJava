@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-// -Xms10M -Xmx10M
+// VM 参数：-Xms10M -Xmx10M
 public class GCOverheadLimitTest {
     static class Key {
         Integer id;

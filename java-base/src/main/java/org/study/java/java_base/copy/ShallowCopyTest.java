@@ -14,7 +14,7 @@ class Father implements Cloneable {
   protected Object clone() throws CloneNotSupportedException {
     return super.clone();
   }
-//  // deep clone
+//  // 放开该方法注释，可以实现深拷贝效果
 //  @Override
 //  protected Object clone() throws CloneNotSupportedException {
 //    Father father = (Father) super.clone();
