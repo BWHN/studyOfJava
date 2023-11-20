@@ -4,4 +4,5 @@
 
 项目模块说明：
 - java-base: java基础篇
-- java-optimization：java优化篇
+- java-optimization: java优化篇
+- spring-base: spring基础篇
