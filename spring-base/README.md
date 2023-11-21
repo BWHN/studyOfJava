@@ -155,8 +155,38 @@ public class DependencyInjectTest {}
 
 接着 `Dependency1` 对象会被放进 <font color=red>earlySingletonObjects</font>，而 <font color=red>singletonFactories</font> 中的回调方法则会被移除。而此时 `Dependency2` 对象也获取到了 `Dependency1` 对象并完成注入。
 
-接着我们把目光再次回到创建 `Dependency1` 对象时执行的 `doGetBean` 方法，此时 `Dependency1` 对象已经创建成功，继续往下执行 `addSingleton` 方法，该方法会将 `Dependency1` 对象放到 <font color=red>singletonObjects</font> 中，并从 <font color=red>earlySingletonObjects</font> 中移除。
+我们把目光再次回到创建 `Dependency1` 对象时执行的 `doGetBean` 方法，此时 `Dependency1` 对象已经创建成功，继续往下执行 `addSingleton` 方法，该方法会将 `Dependency1` 对象放到 <font color=red>singletonObjects</font> 中，并从 <font color=red>earlySingletonObjects</font> 中移除。
 
 ![](/src/main/resources/dependency_cycle/dependency-cycle-19.png)
 
 至此，`Dependency1` 和 `Dependency2` 对象都创建成功。
+
+## 三级缓存
+上面的 DI 流程一节中，有三个代码重点标红，分别是 <font color=red>singletonObjects</font>、<font color=red>earlySingletonObjects</font>、<font color=red>singletonFactories</font>。它们就是 Spring 的三级缓存，是 Spring 解决循环依赖的关键。它们的作用分别是：
+- 一级缓存：singletonObjects，用于保存实例化、注入、初始化完成的 bean 实例； 
+- 二级缓存：earlySingletonObjects，用于保存实例化完成的 bean 实例； 
+- 三级缓存：singletonFactories，用于保存 bean 创建工厂，以便后面有机会创建代理对象。
+
+三级缓存的具体使用方式如下：
+
+![](/src/main/resources/dependency_cycle/dependency-cycle-20.png)
+
+整个执行逻辑如下：
+1. 在第一层中，先去获取 A 的 Bean，发现没有就准备去创建一个，然后将 A 的代理工厂放入“三级缓存”（这个 A 其实是一个半成品，还没有对里面的属性进行注入），但是 A 依赖 B 的创建，就必须先去创建 B； 
+2. 在第二层中，准备创建 B，发现 B 又依赖 A，需要先去创建 A； 
+3. 在第三层中，去创建 A，因为第一层已经创建了 A 的代理工厂，直接从“三级缓存”中拿到 A 的代理工厂，获取 A 的代理对象，放入“二级缓存”，并清除“三级缓存”； 
+4. 回到第二层，现在有了 A 的代理对象，对 A 的依赖完美解决（这里的 A 仍然是个半成品），B 初始化成功； 
+5. 回到第一层，现在 B 初始化成功，完成 A 对象的属性注入，然后再填充 A 的其它属性，以及 A 的其它步骤（包括 AOP），完成对 A 完整的初始化功能（这里的 A 才是完整的 Bean）。 
+6. 将 A 放入“一级缓存”。
+
+## 为什么是三级缓存？
+
+伟大的毛主席曾说过：用发展的眼光看待问题。当问及为什么 Spring 要用三级缓存解决循环依赖问题时，我们不能只盯着三级缓存看，也要兼顾 Spring 的发展脉络。综合二者来看，<font color=yellow>Spring 是为了解决循环依赖中出现 aop 代理问题，同时兼顾代码的可拓展性才这么设计</font>。
+
+如果只是为了解决循环依赖，只需要一级缓存就够了。对比 SpringFramework-1.0 的代码，早期的 Spring 在 AbstractBeanFactory 中只用了一个叫 singletonCache 的一级缓存（也就是单例池）来解决循环依赖，同时，在AbstractAutowireCapableBeanFactory 中，实例化 Bean 之后，就先把引用存放到一级缓存中，通过这个操作来解决循环依赖问题。
+
+于此同时 SpringBean 生命周期的基调也已经定下来了：也就是实例化 Bean，对 Bean 进行属性注入，调用 aware 接口回调，调用 BeanPostProcessor 的前置处理方法，调用 Bean 初始化方法，调用 BeanPostProcessor 后置处理方法这一流程。并且还没有 getEarlyBeanReference 这个方法，同时 Spring 中的 aop 包也已经存在 springframework1.0 中。
+
+那么大胆猜测一下，早期的 Spring 中已经有 aop 代理，但是还没有出现或者还没有修复循环依赖中出现 aop 代理的问题。那么要解决循环依赖中出现 aop 代理问题引起的依赖注入引用不一致问题，可以实例化后通过 getEarlyBeanReference 把 Bean 引用提前暴露，放到一级缓存当中，依然只需要一级缓存就可以了。<font color=yellow>但是从 Spring 设计者的角度出发，如果仅仅为了解决由于 aop 代理引起的循环依赖问题，就改变了所有 Bean 的生命周期流程，那肯定是不可以的。修复这个问题把影响限制在只有循环依赖出现的时候，而不是每个代理对象都要提前暴露，这样子对于框架代码的影响才是最小的。所以最少需要用二级缓存解决，实例化之后先存放一个对象工厂到二级缓存，只有出现循环依赖时才需要提前暴露引用</font>。
+
+那么此时的一级缓存就同时存放完整 Bean 和提前暴露引用的不完整 Bean，如果在 Bean 的生命周期中想要对提前暴露引用的 Bean 进行一些处理，二级缓存就会无法支持这种场景。因此需要三级缓存来处理：一级缓存保存完整 Bean，二级缓存保存提前暴露的不完整 Bean，三级缓存存放能够提前暴露 Bean 引用的对象工厂。那么要对提前暴露引用的 Bean 进行特殊处理的场景就能够实现了，只需要在 Bean 后置处理器之后，在放入一级缓存之前，调用 getSingleton 方法，allowEarlyReference 为 false，查询二级缓存中是否存在对应的 Bean，如果不为 null，说明 Bean 提前暴露了，从三级缓存移动到了二级缓存，就需要进行处理。
