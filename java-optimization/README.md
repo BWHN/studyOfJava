@@ -1,3 +1,22 @@
+<!-- TOC -->
+* [故障排查](#故障排查)
+  * [jstack](#jstack)
+  * [jmap](#jmap)
+    * [heap](#heap)
+    * [dump](#dump)
+  * [JProfiler](#jprofiler)
+    * [堆溢出排查示例](#堆溢出排查示例)
+* [OOM 场景分析](#oom-场景分析)
+  * [StackOverflowError](#stackoverflowerror)
+  * [Java heap space](#java-heap-space)
+  * [GC overhead limit exceeded](#gc-overhead-limit-exceeded)
+  * [Direct buffer memory](#direct-buffer-memory)
+  * [Unable to create new native thread](#unable-to-create-new-native-thread)
+  * [Metaspace](#metaspace)
+  * [Requested array size exceeds VM limit](#requested-array-size-exceeds-vm-limit)
+  * [Out of swap space](#out-of-swap-space)
+  * [Kill process or sacrifice child](#kill-process-or-sacrifice-child)
+<!-- TOC -->
 
 # 故障排查
 ## jstack
